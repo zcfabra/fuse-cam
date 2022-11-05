@@ -9,8 +9,11 @@ const Home: NextPage = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const photoRef = useRef<HTMLCanvasElement>(null);
+  const interpRef = useRef<HTMLCanvasElement>(null);
   const [photos, setPhotos] = useState<[string | null, string | null]>([null,null])
   const [model, setModel] = useState<tf.GraphModel<string | tf.io.IOHandler>>();
+  const [interpFrame, setInterpFrame] = useState<boolean>(false);
+  const [ix, setIx] = useState(0)
   const [tensorData, setTensorData] = useState<{start: null | tf.Tensor3D, end:null | tf.Tensor3D}>({
     start: null,
     end: null
@@ -31,14 +34,21 @@ const Home: NextPage = () => {
   }, [videoRef])
 
   useEffect(()=>{
-    (async()=>{let model = await tf.loadGraphModel("film_net/Style/saved_model/model.json");
+    (async()=>{let model = await tf.loadGraphModel("net/web_from_hub/model.json");
+    console.log(model)
     setModel(model);
-    console.log(model)})();
+    console.log(model);
+
+
+
+    console.log("----",  model.outputNodes)
+    console.log(model.outputs)
+  })();
   }, [])
 
   const takePhoto = async()=>{
     let photo = photoRef.current;
-    const width = 1920;
+    const width = 480;
     const height = width / (16/9);
 
 
@@ -86,10 +96,33 @@ const Home: NextPage = () => {
     console.log(photos)
   }, [photos])
 
-  const interp = () =>{
+  const interp = async () =>{
 
-    let out = model!.execute([tensorData.start!, tensorData.end!, tf.tensor1d([1])], )
-    console.log(out)
+    // let out = model!.execute([tf.tensor2d([[1]]),tf.expandDims(tensorData.start!, 0), tf.expandDims(tensorData.end!, 0)]);
+    // let result;
+    // console.log(out)
+    // if (out.constructor == Array){
+    //    result = out[0];
+    // } else {
+    //   console.log("hi")
+    //    result = out;
+    // }
+
+    // console.log(result);
+    console.log(tf.expandDims(tensorData.start!, 0).shape, tf.expandDims(tensorData.end!, 0).shape)
+
+    let out = model!.predict([tf.tensor2d([[0.5]]),tf.expandDims(tensorData.start!, 0), tf.expandDims(tensorData.end!, 0)]);
+    console.log(out.map(i=>i.shape));
+    if (out.constructor == Array){
+
+      let final = out[19]?.squeeze([0]).div(tf.scalar(255))
+      let result = await tf.browser.toPixels(final! as tf.Tensor3D, interpRef.current!);
+      setInterpFrame(true);
+
+
+    }
+
+
 
 
   }
@@ -98,7 +131,11 @@ const Home: NextPage = () => {
     <>
     <div className="w-full h-screen bg-black flex flex-col items-center">
       <h1 className="mt-8 mb-12 bg-gradient-to-r font-light text-5xl from-purple-500 to-cyan-500 bg-clip-text text-transparent ">fuse_cam v0.0.1</h1>
-      <video ref={videoRef}></video>
+      
+      {!interpFrame && <video ref={videoRef}></video>
+       }
+
+      <canvas className="w-full h-full" ref={interpRef}></canvas>
       <canvas className="hidden" ref={photoRef}/>
       <div className="w-full flex flex-row justify-center">
         {photos[0] && 
@@ -124,30 +161,3 @@ const Home: NextPage = () => {
 };
 
 export default Home;
-
-type TechnologyCardProps = {
-  name: string;
-  description: string;
-  documentation: string;
-};
-
-const TechnologyCard = ({
-  name,
-  description,
-  documentation,
-}: TechnologyCardProps) => {
-  return (
-    <section className="flex flex-col justify-center rounded border-2 border-gray-500 p-6 shadow-xl duration-500 motion-safe:hover:scale-105">
-      <h2 className="text-lg text-gray-700">{name}</h2>
-      <p className="text-sm text-gray-600">{description}</p>
-      <a
-        className="m-auto mt-3 w-fit text-sm text-violet-500 underline decoration-dotted underline-offset-2"
-        href={documentation}
-        target="_blank"
-        rel="noreferrer"
-      >
-        Documentation
-      </a>
-    </section>
-  );
-};
