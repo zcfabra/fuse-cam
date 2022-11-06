@@ -35,7 +35,7 @@ const Home: NextPage = () => {
 
   useEffect(()=>{
     (async()=>{let model = await tf.loadGraphModel("net/web_from_hub/model.json");
-    console.log(model)
+    console.log(model.modelSignature)
     setModel(model);
     console.log(model);
 
@@ -58,7 +58,8 @@ const Home: NextPage = () => {
     ctx!.drawImage(videoRef.current!, 0, 0, width, height);
     let img = photoRef.current!.toDataURL();
 
-    let img_tensor = await ImageDataToTensor(ctx!.getImageData(0,0,width,height))
+    let img_tensor = await ImageDataToTensor(ctx!.getImageData(0,0,width,height));
+    await tf.browser.toPixels(tf.div(img_tensor as Tensor3D, tf.scalar(255)), interpRef.current)
     setTensorData(prev=>{
       if (!prev["start"]){
         return {
@@ -97,30 +98,12 @@ const Home: NextPage = () => {
   }, [photos])
 
   const interp = async () =>{
+    console.log(tensorData["end"]?.shape)
+    console.log(tensorData["start"]?.shape)
+    console.log(tf.max(tensorData["start"]!).print(), tf.max(tensorData["end"]!).print())
 
-    // let out = model!.execute([tf.tensor2d([[1]]),tf.expandDims(tensorData.start!, 0), tf.expandDims(tensorData.end!, 0)]);
-    // let result;
-    // console.log(out)
-    // if (out.constructor == Array){
-    //    result = out[0];
-    // } else {
-    //   console.log("hi")
-    //    result = out;
-    // }
-
-    // console.log(result);
-    console.log(tf.expandDims(tensorData.start!, 0).shape, tf.expandDims(tensorData.end!, 0).shape)
-
-    let out = model!.predict([tf.tensor2d([[0.5]]),tf.expandDims(tensorData.start!, 0), tf.expandDims(tensorData.end!, 0)]);
-    console.log(out.map(i=>i.shape));
-    if (out.constructor == Array){
-
-      let final = out[19]?.squeeze([0]).div(tf.scalar(255))
-      let result = await tf.browser.toPixels(final! as tf.Tensor3D, interpRef.current!);
-      setInterpFrame(true);
-
-
-    }
+    let out = model?.predict({"x0": tf.div(tensorData["start"]!.expandDims(0), tf.scalar(255)), "x1":tf.div(tensorData["end"]!.expandDims(0), tf.scalar(255)), "time":tf.tensor([[0.5]])})
+    tf.browser.toPixels(tf.squeeze(out[19], 0), interpRef.current)
 
 
 
